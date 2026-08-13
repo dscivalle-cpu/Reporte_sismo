@@ -174,7 +174,7 @@
       </div>
 
       <div class="tarjeta">
-        <h2>👨‍‍👧 ¿Y las personas?</h2>
+        <h2>👨‍👧 ¿Y las personas?</h2>
         <p class="ayuda">Lo más importante. Si hay una emergencia grave, llama también al 123.</p>
         <div class="fila">
           <div><label class="campo" for="heridos">¿Cuántas personas heridas?</label>
@@ -273,24 +273,13 @@
     </div>
   </section>
 
-  <!-- ===================== PANEL ===================== -->
+  <!-- ===================== PANEL (ACCESO LIBRE) ===================== -->
   <section id="panel" hidden>
     <div class="tarjeta">
-      <h2>🔐 Panel de control</h2>
-      <p class="ayuda">Acceso para autoridades y técnicos de la DSCI.</p>
+      <h2>📊 Panel de control</h2>
+      <p class="ayuda">Consulta y descarga libre de los reportes recibidos.</p>
 
-      <div id="panel-login">
-        <label class="campo" for="p-correo">Correo</label>
-        <input type="email" id="p-correo">
-        <label class="campo" for="p-clave">Contraseña</label>
-        <input type="password" id="p-clave">
-        <div class="acciones">
-          <button class="btn" onclick="ingresarPanel()">Ingresar</button>
-          <button class="btn secundario" onclick="mostrar('inicio')">Cancelar</button>
-        </div>
-      </div>
-
-      <div id="panel-datos" hidden>
+      <div id="panel-datos">
         <div class="stats">
           <div class="stat azul"><div class="num" id="stat-total">0</div>Total reportes</div>
           <div class="stat verde"><div class="num" id="stat-hab">0</div>Habitables</div>
@@ -301,7 +290,6 @@
           <button class="btn" onclick="descargarExcel()">⬇️ Descargar Excel</button>
           <button class="btn" onclick="descargarKML()">⬇️ Descargar KML</button>
           <button class="btn secundario" onclick="refrescarPanel()">🔄 Actualizar</button>
-          <button class="btn secundario" onclick="salirPanel()">Cerrar sesión</button>
         </div>
         <label class="campo">Reportes por municipio</label>
         <table><thead><tr><th>Municipio</th><th>Reportes</th></tr></thead>
@@ -344,6 +332,7 @@ function mostrar(id){
   document.querySelectorAll('main > section').forEach(s => s.hidden = (s.id !== id));
   window.scrollTo({top:0});
   if(id === 'mapa') cargarMapaPublico();
+  if(id === 'panel') refrescarPanel();
 }
 function irFormulario(){
   mostrar('formulario');
@@ -455,7 +444,6 @@ function renderFotos(){
     : 'Las fotos se comprimen automáticamente para ahorrar datos.';
 }
 
-// Comprime la foto (máx. 1280 px, JPEG 72%) para ahorrar datos y almacenamiento
 function comprimirImagen(file, maxDim = 1280, calidad = 0.72){
   return new Promise((res, rej) => {
     const img = new Image();
@@ -588,24 +576,12 @@ async function cargarMapaPublico(){
   }
 }
 
-// ================= PANEL DE AUTORIDADES =================
-async function ingresarPanel(){
-  if(!sb){ alert('Configura SUPABASE_URL y SUPABASE_ANON_KEY en el código.'); return; }
-  const {error} = await sb.auth.signInWithPassword({
-    email: $('#p-correo').value, password: $('#p-clave').value
-  });
-  if(error){ alert('Credenciales incorrectas.'); return; }
-  $('#panel-login').hidden = true;
-  $('#panel-datos').hidden = false;
-  await refrescarPanel();
-}
-function salirPanel(){
-  sb.auth.signOut();
-  $('#panel-login').hidden = false;
-  $('#panel-datos').hidden = true;
-}
-
+// ================= PANEL (SIN LOGIN) =================
 async function refrescarPanel(){
+  if(!sb){
+    $('#tabla-municipios').innerHTML = '<tr><td colspan="2">Configura Supabase para ver los datos.</td></tr>';
+    return;
+  }
   const {data, error} = await sb.from('reportes_completos').select('*').order('id', {ascending:false});
   if(error){ alert(error.message); return; }
   filasPanel = data || [];
@@ -688,14 +664,6 @@ function descargarKML(){
 // ================= INICIO =================
 (async function init(){
   await cargarMunicipios();
-  if(sb){
-    const {data:{session}} = await sb.auth.getSession();
-    if(session){
-      $('#panel-login').hidden = true;
-      $('#panel-datos').hidden = false;
-      refrescarPanel();
-    }
-  }
   enviarPendientes();
 })();
 </script>
