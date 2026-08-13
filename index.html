@@ -42,7 +42,6 @@
   .btn{display:inline-block;background:var(--azul);color:#fff;border:0;border-radius:10px;padding:12px 22px;font-size:1rem;cursor:pointer;text-decoration:none}
   .btn:hover{background:var(--azul-osc)}
   .btn.secundario{background:#fff;color:var(--azul);border:1px solid var(--azul)}
-  .btn.grande{width:100%}
   .btn:disabled{opacity:.6;cursor:wait}
   label.campo{display:block;font-weight:600;margin:14px 0 6px;font-size:.92rem}
   select,input[type=text],input[type=tel],input[type=number],input[type=email],input[type=password],textarea{
@@ -60,7 +59,7 @@
   .checks label{border:1px solid var(--borde);border-radius:10px;padding:8px 10px;font-size:.88rem;display:flex;gap:8px;align-items:center;cursor:pointer;background:#fff}
   .checks label:has(input:checked){border-color:var(--azul);background:#eff6ff}
   #mapa-form,#mapa-publico{height:280px;border-radius:12px;border:1px solid var(--borde);margin-top:10px}
-  .estado-texto{font-size:.85rem;color:#64748b;margin-top:8px}
+  .estado-texto{font-size:.85rem;color:#64748b;margin-top:8px;display:block}
   .alerta{background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:12px;font-size:.88rem;margin-top:14px}
   .exito{text-align:center}
   .exito .emoji{font-size:3.4rem}
@@ -75,6 +74,11 @@
   footer{background:var(--azul-osc);color:#fff;text-align:center;padding:18px 16px;font-size:.85rem}
   footer p{margin:2px 0}
   .nota123{font-size:.85rem;color:#b91c1c;margin-top:8px}
+  /* ---- Vista previa de fotos ---- */
+  .preview-fotos{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .preview-fotos figure{position:relative;margin:0;width:86px;height:86px}
+  .preview-fotos img{width:86px;height:86px;object-fit:cover;border-radius:10px;border:1px solid var(--borde)}
+  .preview-fotos button{position:absolute;top:-8px;right:-8px;width:24px;height:24px;border-radius:50%;border:0;background:var(--rojo);color:#fff;cursor:pointer;font-size:.8rem;line-height:1}
 </style>
 </head>
 <body>
@@ -111,7 +115,7 @@
       </div>
       <p>Si tu vivienda resultó afectada por el terremoto del 10 de agosto de 2026, repórtala aquí.
          Tu reporte ayuda a que la ayuda llegue a quienes más la necesitan, en los 42 municipios del Valle del Cauca.
-         Reportar toma 2 minutos, no necesitas registrarte y puedes usar el GPS de tu celular.</p>
+         Reportar toma 2 minutos, no necesitas registrarte y puedes usar el GPS y la cámara de tu celular.</p>
       <button class="btn" onclick="irFormulario()">📝 Reportar mi vivienda</button>
       &nbsp;
       <button class="btn secundario" onclick="mostrar('mapa')">Ver mapa de afectaciones</button>
@@ -170,7 +174,7 @@
       </div>
 
       <div class="tarjeta">
-        <h2>👨‍👩‍👧 ¿Y las personas?</h2>
+        <h2>👨‍‍👧 ¿Y las personas?</h2>
         <p class="ayuda">Lo más importante. Si hay una emergencia grave, llama también al 123.</p>
         <div class="fila">
           <div><label class="campo" for="heridos">¿Cuántas personas heridas?</label>
@@ -212,8 +216,19 @@
           <div><label class="campo" for="telefono">Teléfono de contacto</label>
             <input type="tel" id="telefono" placeholder="Ej: 310 000 0000"></div>
         </div>
-        <label class="campo" for="foto">Foto de la vivienda (opcional)</label>
-        <input type="file" id="foto" accept="image/*" capture="environment">
+
+        <!-- ============ FOTOS DE LA AFECTACIÓN ============ -->
+        <label class="campo">📷 Fotos de la afectación (opcional)</label>
+        <p class="ayuda">Toma fotos de los daños: muros, techo, estructura. Puedes agregar hasta 6.</p>
+        <div class="acciones" style="margin:8px 0">
+          <button type="button" class="btn secundario" id="btn-camara">📷 Tomar foto</button>
+          <button type="button" class="btn secundario" id="btn-galeria">🖼️ Subir de galería</button>
+        </div>
+        <input type="file" id="camara" accept="image/*" capture="environment" hidden>
+        <input type="file" id="galeria" accept="image/*" multiple hidden>
+        <div id="fotos-preview" class="preview-fotos"></div>
+        <small class="estado-texto" id="fotos-info">Las fotos se comprimen automáticamente para ahorrar datos.</small>
+
         <label class="campo" for="observaciones">¿Algo más que debamos saber?</label>
         <textarea id="observaciones"></textarea>
 
@@ -235,7 +250,7 @@
       <div class="alerta" id="aviso-offline" hidden>
         📴 Estás sin señal o no fue posible conectar con el servidor. Tu reporte quedó guardado
         en tu celular y se enviará automáticamente cuando recuperes la conexión.
-        No cierres la página hasta entonces si puedes evitarlo.
+        (Las fotos se envían solo con conexión disponible.)
       </div>
       <div class="acciones" style="justify-content:center">
         <button class="btn" onclick="mostrar('inicio')">Volver al inicio</button>
@@ -251,7 +266,7 @@
       <p class="ayuda" id="mapa-info">Cargando reportes…</p>
       <div id="mapa-publico"></div>
       <div class="chips" style="justify-content:flex-start;margin-top:12px">
-        <span class="chip verde" style="border-color:var(--verde);color:var(--verde)">🟢 Habitable</span>
+        <span class="chip" style="border-color:var(--verde);color:var(--verde)">🟢 Habitable</span>
         <span class="chip amarillo">🟡 Uso restringido</span>
         <span class="chip rojo">🔴 No habitable</span>
       </div>
@@ -306,21 +321,21 @@
 <script>
 // ================= CONFIGURACIÓN =================
 const SUPABASE_URL   = 'https://TU-PROYECTO.supabase.co'; // ← cambia esto
-const SUPABASE_ANON_KEY = 'TU_ANON_KEY';                   // ← cambia esto (llave anon, segura para el cliente)
+const SUPABASE_ANON_KEY = 'TU_ANON_KEY';                   // ← cambia esto
 
 let sb = null;
 try { sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }
 catch(e){ console.warn('Supabase sin configurar:', e); }
 
-// Respaldo local de municipios por si el catálogo aún no está cargado
 const MUNICIPIOS_RESPALDO = ['Alcalá','Andalucía','Ansermanuevo','Argelia','Bolívar','Buenaventura',
 'Buga','Bugalagrande','Caicedonia','Cali','Calima-El Darién','Candelaria','Cartago','Dagua',
 'El Águila','El Cairo','El Cerrito','El Dovio','Florida','Ginebra','Guacarí','Jamundí','La Cumbre',
 'La Unión','La Victoria','Obando','Palmira','Pradera','Restrepo','Riofrío','Roldanillo','San Pedro',
 'Sevilla','Toro','Trujillo','Tuluá','Ulloa','Versalles','Vijes','Yotoco','Yumbo','Zarzal'];
 
-let mapaMuniId = new Map();   // nombre -> id en BD
-let filasPanel = [];          // reportes cargados en el panel
+let mapaMuniId = new Map();
+let filasPanel = [];
+let fotosSel = [];
 
 const $ = sel => document.querySelector(sel);
 
@@ -409,6 +424,55 @@ $('#vereda').addEventListener('change', e => {
   if(!otro.hidden) otro.focus();
 });
 
+// ================= FOTOS DE LA AFECTACIÓN =================
+$('#btn-camara').addEventListener('click', () => $('#camara').click());
+$('#btn-galeria').addEventListener('click', () => $('#galeria').click());
+$('#camara').addEventListener('change', e => { agregarFotos(e.target.files); e.target.value = ''; });
+$('#galeria').addEventListener('change', e => { agregarFotos(e.target.files); e.target.value = ''; });
+
+function agregarFotos(fileList){
+  [...fileList].forEach(f => { if(f.type.startsWith('image/')) fotosSel.push(f); });
+  if(fotosSel.length > 6){ fotosSel = fotosSel.slice(0,6); alert('Máximo 6 fotos por reporte.'); }
+  renderFotos();
+}
+function quitarFoto(i){ fotosSel.splice(i,1); renderFotos(); }
+function renderFotos(){
+  const cont = $('#fotos-preview');
+  cont.innerHTML = '';
+  fotosSel.forEach((f,i) => {
+    const fig = document.createElement('figure');
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(f);
+    img.onload = () => URL.revokeObjectURL(img.src);
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.textContent = '✕'; btn.title = 'Quitar foto';
+    btn.onclick = () => quitarFoto(i);
+    fig.append(img, btn);
+    cont.append(fig);
+  });
+  $('#fotos-info').textContent = fotosSel.length
+    ? `${fotosSel.length} foto(s) lista(s) para enviar.`
+    : 'Las fotos se comprimen automáticamente para ahorrar datos.';
+}
+
+// Comprime la foto (máx. 1280 px, JPEG 72%) para ahorrar datos y almacenamiento
+function comprimirImagen(file, maxDim = 1280, calidad = 0.72){
+  return new Promise((res, rej) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const esc = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * esc);
+      c.height = Math.round(img.height * esc);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob(b => { URL.revokeObjectURL(url); b ? res(b) : rej(new Error('compresión')); }, 'image/jpeg', calidad);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('imagen no válida')); };
+    img.src = url;
+  });
+}
+
 // ================= LECTURA Y ENVÍO =================
 function leerFormulario(){
   const marcados = n => [...document.querySelectorAll(`input[name=${n}]:checked`)].map(i => i.value);
@@ -442,21 +506,28 @@ $('#form-reporte').addEventListener('submit', async ev => {
   const btn = $('#btn-enviar');
   btn.disabled = true; btn.textContent = 'Enviando…';
 
-  // Foto (opcional)
-  const file = $('#foto').files[0];
-  if(file && sb){
-    try{
-      const path = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
-      const {error} = await sb.storage.from('fotos-viviendas').upload(path, file);
-      if(!error){
-        const {data} = sb.storage.from('fotos-viviendas').getPublicUrl(path);
-        p.foto_url = data.publicUrl;
-      }
-    }catch(e){ console.warn('Foto no cargada', e); }
+  // Fotos: comprimir y subir al bucket (hasta 6)
+  const fotosUrls = [];
+  if(fotosSel.length && sb){
+    btn.textContent = 'Subiendo fotos…';
+    for(const f of fotosSel){
+      try{
+        const blob = await comprimirImagen(f);
+        const path = `${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;
+        const {error} = await sb.storage.from('fotos-viviendas')
+          .upload(path, blob, {contentType:'image/jpeg'});
+        if(!error){
+          const {data} = sb.storage.from('fotos-viviendas').getPublicUrl(path);
+          fotosUrls.push(data.publicUrl);
+        }
+      }catch(e){ console.warn('Foto no cargada', e); }
+    }
+    if(fotosUrls.length) p.fotos = fotosUrls;
   }
 
   let offline = false;
   if(sb){
+    btn.textContent = 'Enviando…';
     const {error} = await sb.from('reportes').insert(p);
     if(error){ console.warn(error); guardarPendiente(p); offline = true; }
   } else { guardarPendiente(p); offline = true; }
@@ -464,6 +535,7 @@ $('#form-reporte').addEventListener('submit', async ev => {
   btn.disabled = false; btn.textContent = 'Enviar reporte ✓';
   $('#aviso-offline').hidden = !offline;
   ev.target.reset();
+  fotosSel = []; renderFotos();
   if(marcador){ marcador.remove(); marcador = null; }
   $('#lat').value = ''; $('#lng').value = '';
   $('#estado-ubicacion').textContent = 'Aún no has marcado la ubicación';
@@ -549,7 +621,7 @@ async function refrescarPanel(){
     || '<tr><td colspan="2">Sin reportes aún</td></tr>';
 }
 
-// ---------- Descarga Excel (.xlsx, con respaldo CSV) ----------
+// ---------- Descarga Excel ----------
 function descargarExcel(){
   if(!filasPanel.length){ alert('No hay reportes para descargar.'); return; }
   const filas = filasPanel.map(r => ({
@@ -558,7 +630,7 @@ function descargarExcel(){
     Heridos:r.heridos, Atrapados:r.atrapados, 'Población vulnerable':r.vulnerables,
     Habitantes:r.habitantes, 'Necesita albergue':r.necesita_albergue,
     'Necesidades urgentes':r.necesidades, 'Jefe de hogar':r.jefe_hogar,
-    'Teléfono':r.telefono, Foto:r.foto_url, Observaciones:r.observaciones
+    'Teléfono':r.telefono, Fotos:r.fotos, Observaciones:r.observaciones
   }));
   if(window.XLSX){
     const ws = XLSX.utils.json_to_sheet(filas);
@@ -578,7 +650,7 @@ function descargarExcel(){
   }
 }
 
-// ---------- Descarga KML (Google Earth / QGIS) ----------
+// ---------- Descarga KML ----------
 function escKML(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function descargarKML(){
   if(!filasPanel.length){ alert('No hay reportes para descargar.'); return; }
@@ -600,7 +672,8 @@ function descargarKML(){
       + `Estado: ${r.estado}<br/>Daños: ${escKML(r.danos) || 'N/D'}<br/>`
       + `Heridos: ${r.heridos} · Atrapados: ${r.atrapados}<br/>`
       + `Habitantes: ${r.habitantes ?? 'N/D'}<br/>Albergue: ${r.necesita_albergue}<br/>`
-      + `Jefe de hogar: ${escKML(r.jefe_hogar) || ''} · Tel: ${escKML(r.telefono) || ''}]]></description>`
+      + `Jefe de hogar: ${escKML(r.jefe_hogar) || ''} · Tel: ${escKML(r.telefono) || ''}<br/>`
+      + `Fotos: ${escKML(r.fotos) || 'N/D'}]]></description>`
       + `<styleUrl>#${r.estado}</styleUrl>`
       + `<Point><coordinates>${r.lng},${r.lat},0</coordinates></Point></Placemark>\n`;
   });
