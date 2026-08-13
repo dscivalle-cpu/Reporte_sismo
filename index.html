@@ -74,7 +74,6 @@
   footer{background:var(--azul-osc);color:#fff;text-align:center;padding:18px 16px;font-size:.85rem}
   footer p{margin:2px 0}
   .nota123{font-size:.85rem;color:#b91c1c;margin-top:8px}
-  /* ---- Vista previa de fotos ---- */
   .preview-fotos{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
   .preview-fotos figure{position:relative;margin:0;width:86px;height:86px}
   .preview-fotos img{width:86px;height:86px;object-fit:cover;border-radius:10px;border:1px solid var(--borde)}
@@ -174,7 +173,7 @@
       </div>
 
       <div class="tarjeta">
-        <h2>👨‍👧 ¿Y las personas?</h2>
+        <h2>👨‍👩‍👧 ¿Y las personas?</h2>
         <p class="ayuda">Lo más importante. Si hay una emergencia grave, llama también al 123.</p>
         <div class="fila">
           <div><label class="campo" for="heridos">¿Cuántas personas heridas?</label>
@@ -307,9 +306,9 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// ================= CONFIGURACIÓN =================
-const SUPABASE_URL   = 'https://TU-PROYECTO.supabase.co'; // ← cambia esto
-const SUPABASE_ANON_KEY = 'TU_ANON_KEY';                   // ← cambia esto
+// ================= CONFIGURACIÓN (CREDENCIALES REALES) =================
+const SUPABASE_URL   = 'https://ihmqzuedrwkgpbvoqtxm.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_S8p2v6gkmlXT-lvNF81Q3w_DABwiFZS';
 
 let sb = null;
 try { sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }
@@ -494,7 +493,6 @@ $('#form-reporte').addEventListener('submit', async ev => {
   const btn = $('#btn-enviar');
   btn.disabled = true; btn.textContent = 'Enviando…';
 
-  // Fotos: comprimir y subir al bucket (hasta 6)
   const fotosUrls = [];
   if(fotosSel.length && sb){
     btn.textContent = 'Subiendo fotos…';
@@ -583,7 +581,12 @@ async function refrescarPanel(){
     return;
   }
   const {data, error} = await sb.from('reportes_completos').select('*').order('id', {ascending:false});
-  if(error){ alert(error.message); return; }
+  if(error){
+    $('#tabla-municipios').innerHTML =
+      `<tr><td colspan="2">⚠️ No fue posible conectar con Supabase (${error.message}). ` +
+      `Verifica que el SQL se haya ejecutado y el proyecto esté activo.</td></tr>`;
+    return;
+  }
   filasPanel = data || [];
   const por = k => filasPanel.filter(f => f.estado === k).length;
   $('#stat-total').textContent = filasPanel.length;
