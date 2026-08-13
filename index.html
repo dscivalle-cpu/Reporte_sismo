@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DSCI Valle del Cauca · Reporte de Afectaciones</title>
+<meta name="description" content="Reporte ciudadano de afectaciones en viviendas por el terremoto del 10 de agosto de 2026 · DSCI Territorial Valle del Cauca">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --azul:#0f4c81; --azul-osc:#0a3557; --acento:#f59e0b;
+    --verde:#16a34a; --amarillo:#f59e0b; --rojo:#dc2626;
+    --gris:#f1f5f9; --borde:#dbe3ec; --texto:#1e293b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--texto);background:var(--gris)}
+  .contenedor{max-width:900px;margin:0 auto;padding:0 16px}
+  header{background:linear-gradient(135deg,var(--azul),var(--azul-osc));color:#fff;padding:14px 0}
+  .cabecera{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+  .marca{display:flex;gap:12px;align-items:center}
+  .logo{font-size:2rem}
+  header h1{font-size:1.05rem;margin:0}
+  header p{margin:2px 0 0;font-size:.8rem;opacity:.85}
+  nav{display:flex;gap:6px;flex-wrap:wrap}
+  .btn-min{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:.85rem}
+  .btn-min:hover{background:rgba(255,255,255,.3)}
+  main{padding:24px 0 40px}
+  section{max-width:900px;margin:0 auto;padding:0 16px}
+  .tarjeta{background:#fff;border:1px solid var(--borde);border-radius:14px;padding:20px;margin-bottom:18px}
+  .tarjeta h2{margin:0 0 4px;font-size:1.1rem}
+  .tarjeta .ayuda{margin:0 0 14px;color:#64748b;font-size:.88rem}
+  .hero{text-align:center;padding:26px 20px}
+  .hero .emoji{font-size:3rem}
+  .hero h2{font-size:1.4rem;margin:8px 0 6px}
+  .hero p{color:#475569;max-width:640px;margin:0 auto 18px}
+  .chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:18px}
+  .chip{font-size:.75rem;border-radius:999px;padding:4px 12px;border:1px solid var(--borde);background:#fff;color:#475569}
+  .chip.rojo{border-color:var(--rojo);color:var(--rojo)}
+  .chip.amarillo{border-color:var(--amarillo);color:#b45309}
+  .btn{display:inline-block;background:var(--azul);color:#fff;border:0;border-radius:10px;padding:12px 22px;font-size:1rem;cursor:pointer;text-decoration:none}
+  .btn:hover{background:var(--azul-osc)}
+  .btn.secundario{background:#fff;color:var(--azul);border:1px solid var(--azul)}
+  .btn.grande{width:100%}
+  .btn:disabled{opacity:.6;cursor:wait}
+  label.campo{display:block;font-weight:600;margin:14px 0 6px;font-size:.92rem}
+  select,input[type=text],input[type=tel],input[type=number],input[type=email],input[type=password],textarea{
+    width:100%;padding:10px 12px;border:1px solid var(--borde);border-radius:10px;font-size:.95rem;background:#fff}
+  textarea{min-height:80px;resize:vertical}
+  .fila{display:flex;gap:14px;flex-wrap:wrap}
+  .fila > div{flex:1;min-width:200px}
+  .opciones{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+  .opcion{border:2px solid var(--borde);border-radius:12px;padding:12px;cursor:pointer;font-size:.9rem;display:flex;gap:10px;align-items:flex-start}
+  .opcion input{margin-top:3px}
+  .opcion:has(input:checked){border-color:var(--azul);background:#eff6ff}
+  .opcion b{display:block}
+  .opcion small{color:#64748b}
+  .checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
+  .checks label{border:1px solid var(--borde);border-radius:10px;padding:8px 10px;font-size:.88rem;display:flex;gap:8px;align-items:center;cursor:pointer;background:#fff}
+  .checks label:has(input:checked){border-color:var(--azul);background:#eff6ff}
+  #mapa-form,#mapa-publico{height:280px;border-radius:12px;border:1px solid var(--borde);margin-top:10px}
+  .estado-texto{font-size:.85rem;color:#64748b;margin-top:8px}
+  .alerta{background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:12px;font-size:.88rem;margin-top:14px}
+  .exito{text-align:center}
+  .exito .emoji{font-size:3.4rem}
+  table{width:100%;border-collapse:collapse;font-size:.88rem;background:#fff}
+  th,td{border:1px solid var(--borde);padding:8px 10px;text-align:left}
+  th{background:var(--gris)}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+  .stat{background:#fff;border:1px solid var(--borde);border-radius:12px;padding:14px;text-align:center}
+  .stat .num{font-size:1.6rem;font-weight:700}
+  .stat.verde .num{color:var(--verde)} .stat.amarilla .num{color:var(--amarillo)} .stat.roja .num{color:var(--rojo)} .stat.azul .num{color:var(--azul)}
+  .acciones{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}
+  footer{background:var(--azul-osc);color:#fff;text-align:center;padding:18px 16px;font-size:.85rem}
+  footer p{margin:2px 0}
+  .nota123{font-size:.85rem;color:#b91c1c;margin-top:8px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="contenedor cabecera">
+    <div class="marca">
+      <span class="logo">🤝</span>
+      <div>
+        <h1>DSCI Valle del Cauca · Reporte de afectaciones</h1>
+        <p>Terremoto del 10 de agosto de 2026 · Valle del Cauca se une para salir adelante</p>
+      </div>
+    </div>
+    <nav>
+      <button class="btn-min" onclick="mostrar('inicio')">Inicio</button>
+      <button class="btn-min" onclick="irFormulario()">📝 Reportar</button>
+      <button class="btn-min" onclick="mostrar('mapa')">Mapa</button>
+      <button class="btn-min" onclick="mostrar('panel')">Panel</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <!-- ===================== INICIO ===================== -->
+  <section id="inicio">
+    <div class="tarjeta hero">
+      <div class="emoji">🤝</div>
+      <h2>¿Tu vivienda sufrió daños por el sismo?</h2>
+      <div class="chips">
+        <span class="chip rojo">🔴 No habitables</span>
+        <span class="chip amarillo">🟡 Uso restringido</span>
+        <span class="chip">📋 Reportes</span>
+      </div>
+      <p>Si tu vivienda resultó afectada por el terremoto del 10 de agosto de 2026, repórtala aquí.
+         Tu reporte ayuda a que la ayuda llegue a quienes más la necesitan, en los 42 municipios del Valle del Cauca.
+         Reportar toma 2 minutos, no necesitas registrarte y puedes usar el GPS de tu celular.</p>
+      <button class="btn" onclick="irFormulario()">📝 Reportar mi vivienda</button>
+      &nbsp;
+      <button class="btn secundario" onclick="mostrar('mapa')">Ver mapa de afectaciones</button>
+      <p class="nota123">⚠️ Si hay una emergencia grave, llama también al <b>123</b>.</p>
+    </div>
+  </section>
+
+  <!-- ===================== FORMULARIO ===================== -->
+  <section id="formulario" hidden>
+    <form id="form-reporte">
+
+      <div class="tarjeta">
+        <h2>📍 ¿Dónde queda la vivienda?</h2>
+        <p class="ayuda">Usa el GPS de tu celular o toca el mapa para marcar el lugar. Luego selecciona el municipio y la vereda.</p>
+        <button type="button" class="btn secundario" id="btn-gps">📍 Usar mi ubicación</button>
+        <span class="estado-texto" id="estado-ubicacion">Aún no has marcado la ubicación</span>
+        <div id="mapa-form"></div>
+        <input type="hidden" id="lat">
+        <input type="hidden" id="lng">
+
+        <div class="fila">
+          <div>
+            <label class="campo" for="municipio">Municipio *</label>
+            <select id="municipio" required></select>
+          </div>
+          <div>
+            <label class="campo" for="vereda">Vereda o corregimiento</label>
+            <select id="vereda"><option value="">— Primero selecciona el municipio —</option></select>
+            <small class="estado-texto" id="veredas-info"></small>
+            <input type="text" id="vereda-otra" hidden placeholder="Escribe tu vereda o sector" style="margin-top:8px">
+          </div>
+        </div>
+      </div>
+
+      <div class="tarjeta">
+        <h2>🏠 ¿Cómo quedó la vivienda?</h2>
+        <p class="ayuda">Elige la opción que mejor describe el estado actual. *</p>
+        <div class="opciones">
+          <label class="opcion"><input type="radio" name="estado" value="habitable" required>
+            <span><b>✓ Habitable</b><small>Daños leves, se puede vivir en ella</small></span></label>
+          <label class="opcion"><input type="radio" name="estado" value="uso_restringido">
+            <span><b>! Uso restringido</b><small>Daños moderados, hay riesgo en partes</small></span></label>
+          <label class="opcion"><input type="radio" name="estado" value="no_habitable">
+            <span><b>✕ No habitable</b><small>Colapsada o con riesgo de caer</small></span></label>
+        </div>
+
+        <label class="campo">¿Qué daños tiene? (marca los que apliquen)</label>
+        <div class="checks">
+          <label><input type="checkbox" name="danos" value="Grietas en muros"> Grietas en muros</label>
+          <label><input type="checkbox" name="danos" value="Techo caído"> Techo caído</label>
+          <label><input type="checkbox" name="danos" value="Muros caídos"> Muros caídos</label>
+          <label><input type="checkbox" name="danos" value="Colapso parcial"> Colapso parcial</label>
+          <label><input type="checkbox" name="danos" value="Colapso total"> Colapso total</label>
+          <label><input type="checkbox" name="danos" value="Daño en cimientos"> Daño en cimientos</label>
+        </div>
+      </div>
+
+      <div class="tarjeta">
+        <h2>👨‍👩‍👧 ¿Y las personas?</h2>
+        <p class="ayuda">Lo más importante. Si hay una emergencia grave, llama también al 123.</p>
+        <div class="fila">
+          <div><label class="campo" for="heridos">¿Cuántas personas heridas?</label>
+            <input type="number" id="heridos" min="0" value="0"></div>
+          <div><label class="campo" for="atrapados">¿Cuántas personas atrapadas?</label>
+            <input type="number" id="atrapados" min="0" value="0"></div>
+          <div><label class="campo" for="habitantes">¿Cuántas personas viven en la vivienda?</label>
+            <input type="number" id="habitantes" min="1" placeholder="Ej: 4"></div>
+        </div>
+        <label class="campo">Personas en situación vulnerable</label>
+        <div class="checks">
+          <label><input type="checkbox" name="vulnerables" value="Niños"> Niños</label>
+          <label><input type="checkbox" name="vulnerables" value="Adultos mayores"> Adultos mayores</label>
+          <label><input type="checkbox" name="vulnerables" value="Con discapacidad"> Con discapacidad</label>
+          <label><input type="checkbox" name="vulnerables" value="Gestantes"> Gestantes</label>
+        </div>
+      </div>
+
+      <div class="tarjeta">
+        <h2>📞 Necesidades y contacto</h2>
+        <p class="ayuda">Para poder ubicarte y llevar la ayuda correcta.</p>
+        <label class="campo">¿Necesitan albergue?</label>
+        <div class="checks">
+          <label><input type="radio" name="albergue" value="si"> Sí</label>
+          <label><input type="radio" name="albergue" value="no" checked> No</label>
+        </div>
+        <label class="campo">¿Qué necesitan con urgencia?</label>
+        <div class="checks">
+          <label><input type="checkbox" name="necesidades" value="Agua"> Agua</label>
+          <label><input type="checkbox" name="necesidades" value="Alimentos"> Alimentos</label>
+          <label><input type="checkbox" name="necesidades" value="Medicinas"> Medicinas</label>
+          <label><input type="checkbox" name="necesidades" value="Carpas"> Carpas</label>
+          <label><input type="checkbox" name="necesidades" value="Cobijas"> Cobijas</label>
+          <label><input type="checkbox" name="necesidades" value="Aseo"> Aseo</label>
+        </div>
+        <div class="fila">
+          <div><label class="campo" for="jefe_hogar">Nombre del jefe de hogar *</label>
+            <input type="text" id="jefe_hogar" required></div>
+          <div><label class="campo" for="telefono">Teléfono de contacto</label>
+            <input type="tel" id="telefono" placeholder="Ej: 310 000 0000"></div>
+        </div>
+        <label class="campo" for="foto">Foto de la vivienda (opcional)</label>
+        <input type="file" id="foto" accept="image/*" capture="environment">
+        <label class="campo" for="observaciones">¿Algo más que debamos saber?</label>
+        <textarea id="observaciones"></textarea>
+
+        <div class="acciones">
+          <button type="button" class="btn secundario" onclick="mostrar('inicio')">← Atrás</button>
+          <button type="submit" class="btn" id="btn-enviar">Enviar reporte ✓</button>
+        </div>
+      </div>
+    </form>
+  </section>
+
+  <!-- ===================== ÉXITO ===================== -->
+  <section id="exito" hidden>
+    <div class="tarjeta exito">
+      <div class="emoji">✅</div>
+      <h2>Reporte enviado</h2>
+      <p>Gracias. Tu reporte quedó registrado y ayudará a dirigir la ayuda.<br>
+      Si la situación es de vida o muerte, llama al <b>123</b>.</p>
+      <div class="alerta" id="aviso-offline" hidden>
+        📴 Estás sin señal o no fue posible conectar con el servidor. Tu reporte quedó guardado
+        en tu celular y se enviará automáticamente cuando recuperes la conexión.
+        No cierres la página hasta entonces si puedes evitarlo.
+      </div>
+      <div class="acciones" style="justify-content:center">
+        <button class="btn" onclick="mostrar('inicio')">Volver al inicio</button>
+        <button class="btn secundario" onclick="mostrar('mapa')">Ver mapa de afectaciones</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== MAPA PÚBLICO ===================== -->
+  <section id="mapa" hidden>
+    <div class="tarjeta">
+      <h2>🗺️ Mapa de afectaciones · Valle del Cauca</h2>
+      <p class="ayuda" id="mapa-info">Cargando reportes…</p>
+      <div id="mapa-publico"></div>
+      <div class="chips" style="justify-content:flex-start;margin-top:12px">
+        <span class="chip verde" style="border-color:var(--verde);color:var(--verde)">🟢 Habitable</span>
+        <span class="chip amarillo">🟡 Uso restringido</span>
+        <span class="chip rojo">🔴 No habitable</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== PANEL ===================== -->
+  <section id="panel" hidden>
+    <div class="tarjeta">
+      <h2>🔐 Panel de control</h2>
+      <p class="ayuda">Acceso para autoridades y técnicos de la DSCI.</p>
+
+      <div id="panel-login">
+        <label class="campo" for="p-correo">Correo</label>
+        <input type="email" id="p-correo">
+        <label class="campo" for="p-clave">Contraseña</label>
+        <input type="password" id="p-clave">
+        <div class="acciones">
+          <button class="btn" onclick="ingresarPanel()">Ingresar</button>
+          <button class="btn secundario" onclick="mostrar('inicio')">Cancelar</button>
+        </div>
+      </div>
+
+      <div id="panel-datos" hidden>
+        <div class="stats">
+          <div class="stat azul"><div class="num" id="stat-total">0</div>Total reportes</div>
+          <div class="stat verde"><div class="num" id="stat-hab">0</div>Habitables</div>
+          <div class="stat amarilla"><div class="num" id="stat-res">0</div>Uso restringido</div>
+          <div class="stat roja"><div class="num" id="stat-nohab">0</div>No habitables</div>
+        </div>
+        <div class="acciones">
+          <button class="btn" onclick="descargarExcel()">⬇️ Descargar Excel</button>
+          <button class="btn" onclick="descargarKML()">⬇️ Descargar KML</button>
+          <button class="btn secundario" onclick="refrescarPanel()">🔄 Actualizar</button>
+          <button class="btn secundario" onclick="salirPanel()">Cerrar sesión</button>
+        </div>
+        <label class="campo">Reportes por municipio</label>
+        <table><thead><tr><th>Municipio</th><th>Reportes</th></tr></thead>
+        <tbody id="tabla-municipios"></tbody></table>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <p><b>Elaborado por Diego Castaño</b> · DSCI Territorial Valle del Cauca</p>
+  <p>Terremoto del 10 de agosto de 2026 · Emergencias: línea 123</p>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ================= CONFIGURACIÓN =================
+const SUPABASE_URL   = 'https://TU-PROYECTO.supabase.co'; // ← cambia esto
+const SUPABASE_ANON_KEY = 'TU_ANON_KEY';                   // ← cambia esto (llave anon, segura para el cliente)
+
+let sb = null;
+try { sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }
+catch(e){ console.warn('Supabase sin configurar:', e); }
+
+// Respaldo local de municipios por si el catálogo aún no está cargado
+const MUNICIPIOS_RESPALDO = ['Alcalá','Andalucía','Ansermanuevo','Argelia','Bolívar','Buenaventura',
+'Buga','Bugalagrande','Caicedonia','Cali','Calima-El Darién','Candelaria','Cartago','Dagua',
+'El Águila','El Cairo','El Cerrito','El Dovio','Florida','Ginebra','Guacarí','Jamundí','La Cumbre',
+'La Unión','La Victoria','Obando','Palmira','Pradera','Restrepo','Riofrío','Roldanillo','San Pedro',
+'Sevilla','Toro','Trujillo','Tuluá','Ulloa','Versalles','Vijes','Yotoco','Yumbo','Zarzal'];
+
+let mapaMuniId = new Map();   // nombre -> id en BD
+let filasPanel = [];          // reportes cargados en el panel
+
+const $ = sel => document.querySelector(sel);
+
+// ================= NAVEGACIÓN =================
+function mostrar(id){
+  document.querySelectorAll('main > section').forEach(s => s.hidden = (s.id !== id));
+  window.scrollTo({top:0});
+  if(id === 'mapa') cargarMapaPublico();
+}
+function irFormulario(){
+  mostrar('formulario');
+  setTimeout(() => mapaForm.invalidateSize(), 150);
+}
+
+// ================= MAPAS =================
+const mapaForm = L.map('mapa-form').setView([3.85, -76.6], 8);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  {attribution:'© OpenStreetMap', maxZoom:19}).addTo(mapaForm);
+mapaForm.on('click', e => fijarUbicacion(e.latlng.lat, e.latlng.lng));
+
+let mapaPub = null, capaPub = null, marcador = null;
+
+function fijarUbicacion(lat, lng){
+  $('#lat').value = lat.toFixed(6);
+  $('#lng').value = lng.toFixed(6);
+  if(marcador) marcador.setLatLng([lat,lng]);
+  else marcador = L.marker([lat,lng]).addTo(mapaForm);
+  mapaForm.setView([lat,lng], Math.max(mapaForm.getZoom(), 15));
+  $('#estado-ubicacion').textContent = `✅ Ubicación marcada (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+}
+$('#btn-gps').addEventListener('click', () => {
+  if(!navigator.geolocation){ alert('Tu dispositivo no soporta GPS.'); return; }
+  $('#estado-ubicacion').textContent = '📡 Obteniendo ubicación…';
+  navigator.geolocation.getCurrentPosition(
+    p => fijarUbicacion(p.coords.latitude, p.coords.longitude),
+    () => { $('#estado-ubicacion').textContent = 'No se pudo obtener el GPS. Toca el mapa para marcar.'; },
+    {enableHighAccuracy:true, timeout:10000}
+  );
+});
+
+// ================= MUNICIPIOS Y VEREDAS =================
+async function cargarMunicipios(){
+  let lista = MUNICIPIOS_RESPALDO.map(n => ({nombre:n}));
+  if(sb){
+    try{
+      const {data, error} = await sb.from('municipios').select('id,nombre').order('nombre');
+      if(!error && data?.length){
+        lista = data;
+        mapaMuniId = new Map(data.map(d => [d.nombre, d.id]));
+      }
+    }catch(e){}
+  }
+  $('#municipio').innerHTML = '<option value="">— Selecciona el municipio —</option>' +
+    lista.map(m => `<option value="${m.nombre}">${m.nombre}</option>`).join('');
+}
+
+async function cargarVeredas(municipio){
+  const sel = $('#vereda'), otro = $('#vereda-otra');
+  otro.hidden = true; otro.value = '';
+  sel.innerHTML = '<option value="">Cargando veredas…</option>';
+  let veredas = [];
+  const id = mapaMuniId.get(municipio);
+  if(sb && id != null){
+    try{
+      const {data, error} = await sb.from('veredas').select('nombre')
+        .eq('municipio_id', id).order('nombre');
+      if(!error && data) veredas = data.map(d => d.nombre);
+    }catch(e){}
+  }
+  sel.innerHTML = '<option value="">— Selecciona vereda o corregimiento —</option>'
+    + `<option value="Cabecera municipal">Cabecera municipal (${municipio})</option>`
+    + veredas.map(v => `<option value="${v}">${v}</option>`).join('')
+    + '<option value="__otra">Otra vereda o sector (escribir)…</option>';
+  $('#veredas-info').textContent = veredas.length
+    ? `${veredas.length} veredas/corregimientos cargados de ${municipio}.`
+    : 'Si tu vereda no aparece, elige "Otra vereda o sector" y escríbela.';
+}
+
+$('#municipio').addEventListener('change', e => {
+  if(e.target.value) cargarVeredas(e.target.value);
+  else { $('#vereda').innerHTML = '<option value="">— Primero selecciona el municipio —</option>'; }
+});
+$('#vereda').addEventListener('change', e => {
+  const otro = $('#vereda-otra');
+  otro.hidden = e.target.value !== '__otra';
+  if(!otro.hidden) otro.focus();
+});
+
+// ================= LECTURA Y ENVÍO =================
+function leerFormulario(){
+  const marcados = n => [...document.querySelectorAll(`input[name=${n}]:checked`)].map(i => i.value);
+  let vereda = $('#vereda').value;
+  if(vereda === '__otra') vereda = $('#vereda-otra').value.trim() || 'Otra';
+  return {
+    municipio: $('#municipio').value,
+    vereda: vereda || null,
+    lat: $('#lat').value ? parseFloat($('#lat').value) : null,
+    lng: $('#lng').value ? parseFloat($('#lng').value) : null,
+    estado: document.querySelector('input[name=estado]:checked')?.value || '',
+    danos: marcados('danos'),
+    vulnerables: marcados('vulnerables'),
+    necesidades: marcados('necesidades'),
+    heridos: parseInt($('#heridos').value || '0', 10),
+    atrapados: parseInt($('#atrapados').value || '0', 10),
+    habitantes: $('#habitantes').value ? parseInt($('#habitantes').value, 10) : null,
+    albergue: document.querySelector('input[name=albergue]:checked')?.value === 'si',
+    jefe_hogar: $('#jefe_hogar').value.trim(),
+    telefono: $('#telefono').value.trim(),
+    observaciones: $('#observaciones').value.trim() || null
+  };
+}
+
+$('#form-reporte').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const p = leerFormulario();
+  if(!p.municipio){ alert('Selecciona el municipio.'); return; }
+  if(!p.estado){ alert('Indica cómo quedó la vivienda.'); return; }
+
+  const btn = $('#btn-enviar');
+  btn.disabled = true; btn.textContent = 'Enviando…';
+
+  // Foto (opcional)
+  const file = $('#foto').files[0];
+  if(file && sb){
+    try{
+      const path = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
+      const {error} = await sb.storage.from('fotos-viviendas').upload(path, file);
+      if(!error){
+        const {data} = sb.storage.from('fotos-viviendas').getPublicUrl(path);
+        p.foto_url = data.publicUrl;
+      }
+    }catch(e){ console.warn('Foto no cargada', e); }
+  }
+
+  let offline = false;
+  if(sb){
+    const {error} = await sb.from('reportes').insert(p);
+    if(error){ console.warn(error); guardarPendiente(p); offline = true; }
+  } else { guardarPendiente(p); offline = true; }
+
+  btn.disabled = false; btn.textContent = 'Enviar reporte ✓';
+  $('#aviso-offline').hidden = !offline;
+  ev.target.reset();
+  if(marcador){ marcador.remove(); marcador = null; }
+  $('#lat').value = ''; $('#lng').value = '';
+  $('#estado-ubicacion').textContent = 'Aún no has marcado la ubicación';
+  mostrar('exito');
+});
+
+// Modo sin señal: cola en localStorage y reenvío automático
+function guardarPendiente(p){
+  const q = JSON.parse(localStorage.getItem('dsci_pendientes') || '[]');
+  q.push(p);
+  localStorage.setItem('dsci_pendientes', JSON.stringify(q));
+}
+async function enviarPendientes(){
+  if(!sb || !navigator.onLine) return;
+  const q = JSON.parse(localStorage.getItem('dsci_pendientes') || '[]');
+  if(!q.length) return;
+  const {error} = await sb.from('reportes').insert(q);
+  if(!error) localStorage.removeItem('dsci_pendientes');
+}
+window.addEventListener('online', enviarPendientes);
+
+// ================= MAPA PÚBLICO =================
+async function cargarMapaPublico(){
+  if(!mapaPub){
+    mapaPub = L.map('mapa-publico').setView([3.85, -76.6], 8);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      {attribution:'© OpenStreetMap'}).addTo(mapaPub);
+    capaPub = L.layerGroup().addTo(mapaPub);
+  }
+  setTimeout(() => mapaPub.invalidateSize(), 150);
+  if(!sb){ $('#mapa-info').textContent = 'Configura Supabase para ver los reportes.'; return; }
+  try{
+    const {data, error} = await sb.rpc('reportes_public');
+    if(error) throw error;
+    capaPub.clearLayers();
+    const colores = {habitable:'#16a34a', uso_restringido:'#f59e0b', no_habitable:'#dc2626'};
+    const nombres = {habitable:'Habitable', uso_restringido:'Uso restringido', no_habitable:'No habitable'};
+    const c = {habitable:0, uso_restringido:0, no_habitable:0};
+    (data || []).forEach(r => {
+      c[r.estado] = (c[r.estado] || 0) + 1;
+      L.circleMarker([r.lat, r.lng],
+        {radius:8, color:colores[r.estado], fillColor:colores[r.estado], fillOpacity:.8, weight:2})
+        .bindPopup(`Reporte #${r.id}<br>${r.municipio}${r.vereda ? ' · ' + r.vereda : ''}<br><b>${nombres[r.estado]}</b>`)
+        .addTo(capaPub);
+    });
+    $('#mapa-info').innerHTML =
+      `Reportes: <b>${(data||[]).length}</b> · 🟢 ${c.habitable} · 🟡 ${c.uso_restringido} · 🔴 ${c.no_habitable}`;
+  }catch(e){
+    $('#mapa-info').textContent = 'No se pudieron cargar los reportes (verifica la función reportes_public).';
+  }
+}
+
+// ================= PANEL DE AUTORIDADES =================
+async function ingresarPanel(){
+  if(!sb){ alert('Configura SUPABASE_URL y SUPABASE_ANON_KEY en el código.'); return; }
+  const {error} = await sb.auth.signInWithPassword({
+    email: $('#p-correo').value, password: $('#p-clave').value
+  });
+  if(error){ alert('Credenciales incorrectas.'); return; }
+  $('#panel-login').hidden = true;
+  $('#panel-datos').hidden = false;
+  await refrescarPanel();
+}
+function salirPanel(){
+  sb.auth.signOut();
+  $('#panel-login').hidden = false;
+  $('#panel-datos').hidden = true;
+}
+
+async function refrescarPanel(){
+  const {data, error} = await sb.from('reportes_completos').select('*').order('id', {ascending:false});
+  if(error){ alert(error.message); return; }
+  filasPanel = data || [];
+  const por = k => filasPanel.filter(f => f.estado === k).length;
+  $('#stat-total').textContent = filasPanel.length;
+  $('#stat-hab').textContent = por('habitable');
+  $('#stat-res').textContent = por('uso_restringido');
+  $('#stat-nohab').textContent = por('no_habitable');
+  const cont = {};
+  filasPanel.forEach(f => cont[f.municipio] = (cont[f.municipio] || 0) + 1);
+  $('#tabla-municipios').innerHTML = Object.entries(cont).sort((a,b) => b[1]-a[1])
+    .map(([m,n]) => `<tr><td>${m}</td><td>${n}</td></tr>`).join('')
+    || '<tr><td colspan="2">Sin reportes aún</td></tr>';
+}
+
+// ---------- Descarga Excel (.xlsx, con respaldo CSV) ----------
+function descargarExcel(){
+  if(!filasPanel.length){ alert('No hay reportes para descargar.'); return; }
+  const filas = filasPanel.map(r => ({
+    ID:r.id, Fecha:r.fecha, Municipio:r.municipio, 'Vereda/Corregimiento':r.vereda,
+    Latitud:r.lat, Longitud:r.lng, Estado:r.estado, 'Daños':r.danos,
+    Heridos:r.heridos, Atrapados:r.atrapados, 'Población vulnerable':r.vulnerables,
+    Habitantes:r.habitantes, 'Necesita albergue':r.necesita_albergue,
+    'Necesidades urgentes':r.necesidades, 'Jefe de hogar':r.jefe_hogar,
+    'Teléfono':r.telefono, Foto:r.foto_url, Observaciones:r.observaciones
+  }));
+  if(window.XLSX){
+    const ws = XLSX.utils.json_to_sheet(filas);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Reportes');
+    XLSX.writeFile(wb, 'afectaciones_valle_del_cauca.xlsx');
+  } else {
+    const enc = Object.keys(filas[0]);
+    const csv = [enc.join(';'),
+      ...filas.map(f => enc.map(k => `"${String(f[k] ?? '').replace(/"/g,'""')}"`).join(';'))
+    ].join('\n');
+    const blob = new Blob(['\ufeff' + csv], {type:'text/csv;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'afectaciones_valle_del_cauca.csv';
+    a.click();
+  }
+}
+
+// ---------- Descarga KML (Google Earth / QGIS) ----------
+function escKML(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function descargarKML(){
+  if(!filasPanel.length){ alert('No hay reportes para descargar.'); return; }
+  const iconos = {
+    habitable:'http://maps.google.com/mapfiles/kml/paddle/grn-circle.png',
+    uso_restringido:'http://maps.google.com/mapfiles/kml/paddle/ylw-circle.png',
+    no_habitable:'http://maps.google.com/mapfiles/kml/paddle/red-circle.png'
+  };
+  let kml = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    + '<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n'
+    + '<name>Afectaciones por sismo 10/08/2026 · Valle del Cauca</name>\n'
+    + Object.entries(iconos).map(([k,url]) =>
+        `<Style id="${k}"><IconStyle><scale>1.1</scale><Icon><href>${url}</href></Icon>` +
+        `<hotSpot x="32" y="1" xunits="pixels" yunits="pixels"/></IconStyle></Style>`).join('\n') + '\n';
+  filasPanel.filter(r => r.lat != null && r.lng != null).forEach(r => {
+    kml += '<Placemark>'
+      + `<name>${escKML(r.municipio)} · Reporte #${r.id}</name>`
+      + `<description><![CDATA[Fecha: ${r.fecha}<br/>Vereda: ${escKML(r.vereda) || 'N/D'}<br/>`
+      + `Estado: ${r.estado}<br/>Daños: ${escKML(r.danos) || 'N/D'}<br/>`
+      + `Heridos: ${r.heridos} · Atrapados: ${r.atrapados}<br/>`
+      + `Habitantes: ${r.habitantes ?? 'N/D'}<br/>Albergue: ${r.necesita_albergue}<br/>`
+      + `Jefe de hogar: ${escKML(r.jefe_hogar) || ''} · Tel: ${escKML(r.telefono) || ''}]]></description>`
+      + `<styleUrl>#${r.estado}</styleUrl>`
+      + `<Point><coordinates>${r.lng},${r.lat},0</coordinates></Point></Placemark>\n`;
+  });
+  kml += '</Document>\n</kml>';
+  const blob = new Blob([kml], {type:'application/vnd.google-earth.kml+xml'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'afectaciones_valle_del_cauca.kml';
+  a.click();
+}
+
+// ================= INICIO =================
+(async function init(){
+  await cargarMunicipios();
+  if(sb){
+    const {data:{session}} = await sb.auth.getSession();
+    if(session){
+      $('#panel-login').hidden = true;
+      $('#panel-datos').hidden = false;
+      refrescarPanel();
+    }
+  }
+  enviarPendientes();
+})();
+</script>
+</body>
+</html>
